@@ -33,18 +33,19 @@ auto-dao/
 │       ├── summary.md           # Session summary & progress
 │       ├── roadmap_status.md    # Learning roadmap & milestones
 │       ├── report.md            # Learning report (generated on completion)
+│       ├── source_coverage/     # Source coverage tables for auditability
 │       └── lessons/
-│           ├── 02.0_I2C 协议原理.md   # New: NN[.X]_描述.md
-│           ├── 02.1_I2C 协议代码.md   # Subsection lesson
-│           ├── 06_四大总线对比.md     # Single-page lesson
-│           └── _archive_legacy/      # Old lesson_N.md files (backward compat)
+│           ├── learn/           # Default learner-facing learn-cards
+│           ├── practice/        # Retrieval, transfer, and correction drills
+│           ├── deep/            # Full source-backed references, generated on demand
+│           └── _archive_legacy/ # Old lesson_N.md / NN[.X]_描述.md files
 ├── examples/learning-history/   # Example learning sessions (reference)
 └── tmp/                         # Temporary files
 ```
 
 ### Core Concepts
 
-**File-Driven Learning**: All lesson content, exercises, and answers live in files. Users read lessons from files, write answers in files, and Claude reads files to provide feedback. This prevents hallucination and ensures content consistency.
+**File-Driven Learning**: All lesson content, exercises, and answers live in files. Users start with `lessons/learn/*.learn.md`, write answers in files, and Claude reads files to provide feedback. Practice packs and deep references are separate files so the first learning pass stays short.
 
 **Skill Workflow**: The learning-engine skill orchestrates a strict 5-step pipeline:
 1. **File Format Preprocessing** — Convert input (PDF, DOCX, GitHub link, etc.) to readable Markdown
@@ -119,15 +120,13 @@ Each learning session creates a directory: `learning-history/{topic}_{YYYY-MM-DD
 - Milestones
 - Learning history
 
-**lessons/NN[.X]_描述.md** (or legacy `lesson_N.md`) contains:
-- Metadata (`concept_tags`, `concept_keywords`, prerequisites)
-- Learning objectives (Bloom's level)
-- Core explanation (with `> **资料原文**：` citations)
-- 2-4 practice exercises
-- Thinking module (L1: keyword index + knowledge chains, per B.1+B.4 template)
-- Reflection (meta-cognitive only)
-- Summary with keyword relationship graph (L2)
-- `**我的答案**：` sections for user answers
+**lessons/learn/NN_主题.learn.md** contains the learner-facing first pass:
+- One core question and one concrete outcome
+- One mental model, one minimal example, up to three key anchors
+- One common failure mode, two short exercises, and an 80-word restatement
+- `**我的答案**：` sections for file-based answers
+
+**lessons/practice/** contains optional drill packs. **lessons/deep/** contains full source-backed references. Legacy `lesson_N.md` and `NN[.X]_描述.md` files remain supported for old sessions.
 
 ### Answer Checking Workflow
 

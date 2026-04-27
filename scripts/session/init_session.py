@@ -4,7 +4,7 @@
 一次性生成 SKILL.md Step 3 所需的所有派生视图骨架：
     learning-history/{topic_id}_{timestamp}/
     ├── lessons/                (empty)
-    ├── session_state.json      (schema v2.2, 必填字段已填)
+    ├── session_state.json      (schema v2.3, 必填字段已填)
     ├── summary.md              (模板原文)
     ├── roadmap_status.md       (模板原文)
     ├── _ai_context.md          (模板原文)
@@ -38,6 +38,21 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+
+
+def _ensure_utf8_stdio() -> None:
+    """Avoid UnicodeEncodeError for emoji/status output on Windows consoles."""
+    for stream in (sys.stdout, sys.stderr):
+        encoding = getattr(stream, "encoding", "") or ""
+        if encoding.lower() in ("utf-8", "utf8"):
+            continue
+        try:
+            stream.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+        except Exception:
+            pass
+
+
+_ensure_utf8_stdio()
 
 # --- Paths -----------------------------------------------------------------
 
@@ -164,7 +179,11 @@ def init_session(
             )
 
     # Create directory tree
-    (session_dir / "lessons").mkdir(parents=True, exist_ok=True)
+    lessons_dir = session_dir / "lessons"
+    lessons_dir.mkdir(parents=True, exist_ok=True)
+    for child in ("learn", "practice", "deep"):
+        (lessons_dir / child).mkdir(parents=True, exist_ok=True)
+    (session_dir / "source_coverage").mkdir(parents=True, exist_ok=True)
 
     # Copy Markdown templates verbatim (placeholders preserved for AI to fill)
     for tpl_name, out_name in _MD_COPY_SPEC:

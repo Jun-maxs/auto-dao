@@ -15,7 +15,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "2.2"
+      "const": "2.3"
     },
     "topic_id": {
       "type": "string",
@@ -88,9 +88,62 @@
       "enum": ["awaiting_answer", "awaiting_grading", "awaiting_user_choice", null],
       "description": "Why the session is blocked, null when not blocked"
     },
+    "wait_detail": {
+      "type": ["object", "null"],
+      "description": "Optional human-readable blocking details. Keep wait_reason machine-stable and put lesson-specific context here.",
+      "additionalProperties": true
+    },
     "repo_commit_hash": {
       "type": ["string", "null"],
       "description": "Git commit hash of the repository at learning time. Used for incremental learning on revisit. null for non-repo sources."
+    },
+    "current_mode": {
+      "type": "string",
+      "enum": ["learn", "practice", "deep", "core"],
+      "description": "Current lesson generation mode. New sessions start with learn. core is retained only for legacy session compatibility."
+    },
+    "lesson_files_learn": {
+      "type": "array",
+      "description": "Ordered learner-facing learn-card filenames stored under lessons/learn/. New lesson generation writes here first.",
+      "items": {
+        "type": ["string", "null"]
+      }
+    },
+    "lesson_files_practice": {
+      "type": "array",
+      "description": "Ordered practice-pack filenames stored under lessons/practice/. Generated after or alongside learn cards when practice is needed.",
+      "items": {
+        "type": ["string", "null"]
+      }
+    },
+    "lesson_files_core": {
+      "type": "array",
+      "description": "Legacy ordered core lesson filenames stored under lessons/. New sessions should not append to this list. Transitional nulls are allowed for legacy in-progress sessions.",
+      "items": {
+        "type": ["string", "null"]
+      }
+    },
+    "lesson_files_deep": {
+      "type": "array",
+      "description": "Ordered deep lesson filenames stored under lessons/. New lesson generation writes here. Transitional nulls are allowed for legacy in-progress sessions.",
+      "items": {
+        "type": ["string", "null"]
+      }
+    },
+    "mode_switch_log": {
+      "type": "array",
+      "description": "Audit trail for switching among learn, practice, deep, and legacy core modes.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "at": { "type": "string", "format": "date-time" },
+          "from": { "type": ["string", "null"], "enum": ["learn", "practice", "deep", "core", null] },
+          "to": { "type": "string", "enum": ["learn", "practice", "deep", "core"] },
+          "reason": { "type": "string" }
+        },
+        "required": ["at", "to", "reason"],
+        "additionalProperties": false
+      }
     },
     "created_at": {
       "type": "string",
@@ -106,6 +159,10 @@
       "type": "object",
       "description": "Dynamic learner model — updated after each diagnostic, lesson, and review cycle",
       "properties": {
+        "schema_version": {
+          "type": "string",
+          "description": "Internal learner_model schema version (independent of the outer session schema_version)"
+        },
         "concept_mastery": {
           "type": "object",
           "description": "Maps concept_tag -> mastery record",
@@ -183,9 +240,77 @@
         "metrics": { "type": "string" },
         "review_queue": { "type": "string" },
         "course_overview": { "type": "string" },
+        "source_coverage": { "type": "string" },
         "report": { "type": "string" }
       },
       "additionalProperties": { "type": "string" }
+    },
+    "lesson_titles": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Ordered titles of all planned lessons in the roadmap (display-friendly names)"
+    },
+    "lesson_files": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Ordered filenames of lessons aligned with lesson_titles (stored under lessons/)"
+    },
+    "lesson_variants": {
+      "type": "object",
+      "description": "Maps lesson id (e.g. '02.1') to variant metadata. Used when a lesson was regenerated with a newer template (e.g. v1 -> v2). Introduced by 2026-04-18 scenario-closure-feynman-design.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "active": {
+            "type": "string",
+            "description": "Currently active lesson file (the one students should read)"
+          },
+          "legacy": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Archived older versions of this lesson"
+          },
+          "teaching_mode": {
+            "type": "string",
+            "enum": ["A", "B"],
+            "description": "A = knowledge-structure oriented (single scenario); B = scenario-closure oriented (>=2 independent scenarios)"
+          },
+          "scenario_closures": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "List of closure names; required when teaching_mode='B'"
+          },
+          "notes_dir": {
+            "type": "string",
+            "description": "Relative path to the per-lesson notes directory (holds my_notes.md + photos/ + exercises/)"
+          },
+          "regenerated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp when this variant became active"
+          },
+          "regeneration_reason": {
+            "type": "string",
+            "description": "Human-readable reason for regeneration (e.g. template upgrade, mastery failure postmortem)"
+          }
+        },
+        "required": ["active"],
+        "additionalProperties": false
+      }
+    },
+    "reset_log": {
+      "type": "array",
+      "description": "Audit trail of session-level resets (topic restructure, lesson regeneration, roadmap changes)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "at": { "type": "string", "format": "date-time" },
+          "reason": { "type": "string" },
+          "prev": { "type": "object", "additionalProperties": true }
+        },
+        "required": ["at", "reason"],
+        "additionalProperties": false
+      }
     }
   },
   "additionalProperties": false

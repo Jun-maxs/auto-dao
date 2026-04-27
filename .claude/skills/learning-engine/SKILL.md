@@ -98,6 +98,33 @@ description: >
 > **规则**：当 `session_state.json` 与 Markdown 视图不一致时，以 `session_state.json` 为准。
 > 派生视图可包含 `session_state.json` 中不存在的补充信息（如详细笔记、教学决策日志），但核心进度字段必须与权威源保持一致。
 
+> [!IMPORTANT]
+> ### Lesson 变体追踪（`lesson_variants` 字段，2026-04-18 新增）
+>
+> 当一节课被重新生成（如 v1 → v2 重构、模式 A → B 升级、沉淀复盘后优化）时，不删除旧文件（保留历史轨迹），而是在 `session_state.json` 的 `lesson_variants` 中记录活动变体：
+>
+> ```json
+> "lesson_variants": {
+>   "02.1": {
+>     "active": "02.1_I2C 协议代码_v2.md",   // 学员应读的当前版本
+>     "legacy": ["02.1_I2C 协议代码.md"],      // 已归档的旧版本
+>     "teaching_mode": "B",                         // 当前版用的模式
+>     "scenario_closures": ["EEPROM", "OLED", "AHT20"],
+>     "notes_dir": "lessons/02.1_I2C 协议代码_v2_notes/",
+>     "regenerated_at": "2026-04-18T14:10:00+08:00",
+>     "regeneration_reason": "v1 mastery 3.3/5 复盘..."
+>   }
+> }
+> ```
+>
+> **读取规则**：
+> - 恢复会话时 AI 需查询 `lesson_variants[<lesson_id>].active` 来确定读哪个文件
+> - `lesson_files` 数组保持旧文件名不变时，要优先看 variant.active 覆盖
+> - `scripts/session/validate_state.py` 已支持 variant 规则（`_resolve_lesson_file` 函数）
+>
+> **完整 schema 规范**：见 `${SKILL_DIR}/templates/session-state.schema.json` 的 `lesson_variants` 节。
+> **设计背景**：`docs/plans/2026-04-18-scenario-closure-feynman-design.md`。
+
 ### Role Dispatch Protocol
 
 This skill operates as a single inline agent — no role switching required.
@@ -110,11 +137,15 @@ This skill operates as a single inline agent — no role switching required.
 
 | Index | Path | Purpose |
 |-------|------|---------|
-| Lesson 模板 | `${SKILL_DIR}/templates/lesson-template.md` | 每节课的内容结构模板 |
+| Learn-card 模板 | `${SKILL_DIR}/templates/learn-card-template.md` | 默认学习入口，短文档，先建立心智模型 |
+| Practice-pack 模板 | `${SKILL_DIR}/templates/practice-pack-template.md` | 练习包，承载检索、迁移、改错和复述 |
+| Deep-reference 模板 | `${SKILL_DIR}/templates/deep-reference-template.md` | 深入查阅、来源覆盖、完整推导与完整代码 |
+| 生成器规则 | `${SKILL_DIR}/templates/generator-rules.md` | AI 内部规则，不直接写入学习者主文档 |
+| Legacy Lesson 模板 | `${SKILL_DIR}/templates/lesson-template.md` | 旧 deep 结构模板；仅维护历史 deep 课或用户明确要求时使用 |
 | 摘要模板 | `${SKILL_DIR}/templates/summary-template.md` | `summary.md` 初始化模板 |
 | 路线图模板 | `${SKILL_DIR}/templates/roadmap-template.md` | `roadmap_status.md` 初始化模板 |
 | 报告模板 | `${SKILL_DIR}/templates/report-template.md` | 学习报告结构模板 |
-| 状态模板 | `${SKILL_DIR}/templates/session-state-template.json` | `session_state.json` 初始化模板（v2.1，含 learner_model） |
+| 状态模板 | `${SKILL_DIR}/templates/session-state-template.json` | `session_state.json` 初始化模板（v2.3，默认 learn-first；保留历史 core/deep 字段用于旧会话兼容） |
 | 状态 Schema | `${SKILL_DIR}/templates/session-state.schema.json` | `session_state.json` 字段校验 Schema |
 | 项目概览模板 | `${SKILL_DIR}/templates/project-overview-template.md` | 开源项目学习资料生成模板 |
 | 复习队列模板 | `${SKILL_DIR}/templates/review-queue-template.json` | 错题复习队列初始化模板 |
@@ -304,7 +335,7 @@ This skill operates as a single inline agent — no role switching required.
 3. 读取 `${SKILL_DIR}/templates/roadmap-template.md`，初始化 `roadmap_status.md`（若 Step 2.7 读到了知识图谱前置，roadmap 的"知识点追踪"表以 ✅/🔄/⏳ 状态反映已掌握部分）
 4. 读取 `${SKILL_DIR}/templates/course-overview-template.md`，初始化 `course_overview.md`（含课程级学习目标、知识地图、各课速览；`total_lessons` 来自 roadmap 规划）
 5. 读取 `${SKILL_DIR}/templates/ai-context-template.md`，初始化 `_ai_context.md`，填入：资料来源路径、转换后路径、用户背景水平初始判断
-6. 读取 `${SKILL_DIR}/templates/session-state-template.json`，初始化 `session_state.json`（**v2.2**，含 `learner_model` + `_file_paths`），填入必填字段：`topic_id`、`topic_name`、`source_path`、`processed_path`、`source_hash`（源文件 SHA-256）、`phase` ← `"learning"`、`total_lessons`（来自 roadmap 规划）、`learning_language`、`created_at`、`updated_at`
+6. 读取 `${SKILL_DIR}/templates/session-state-template.json`，初始化 `session_state.json`（**v2.3**，默认 `current_mode: "learn"`，含 `learner_model` + `_file_paths`；历史 core/deep 字段仅用于旧会话兼容），填入必填字段：`topic_id`、`topic_name`、`source_path`、`processed_path`、`source_hash`（源文件 SHA-256）、`phase` ← `"learning"`、`total_lessons`（来自 roadmap 规划）、`learning_language`、`created_at`、`updated_at`
    - 若学习资料为 GitHub 仓库或本地 Git 目录：记录 `repo_commit_hash` ← 当前 HEAD commit hash（通过 `git rev-parse HEAD` 获取）
    - `learner_model` 默认空对象（`concept_mastery: {}`、`overall_confidence_bias: "unknown"`、`bloom_target: 3`）
 7. **同步资料图索引到 session**（仅当 `processed_path` 指向 MinerU 转换输出 `tmp/converted/{material}_{ts}/` 时执行）：
@@ -359,7 +390,7 @@ This skill operates as a single inline agent — no role switching required.
 ```
 📋 检测到 Lesson {index} 已生成，但尚未完成。
 
-📄 文件位置：`./learning-history/${topic_name}_${timestamp}/lessons/lesson_{index}.md`
+   📄 文件位置：`./learning-history/${topic_name}_${timestamp}/lessons/{active_lesson_file}`
 
 请阅读该文件，在"我的答案"区域填写你的答案，保存文件后，在对话窗口告诉我"已完成"。
 ```
@@ -605,23 +636,40 @@ This skill operates as a single inline agent — no role switching required.
 7. **识别前置依赖（Prerequisites）**：对每个 concept_tag，查询 roadmap_status.md 中哪些已学 lesson 包含相同的 concept_tag 或其相关概念。填写 `prerequisites: [lesson_{N}]`，若没有前置依赖则填写 `prerequisites: []`。
 8. **查询学习者模型（Conditional）**：若 session_state.json 的 learner_model.concept_mastery 中已有相关 concept_tag 的记录，在 lesson 元信息中标注"⚠️ 该用户对此相关概念有薄弱记录（confidence_bias: {偏差类型}）"，并在讲解中针对性加强。
 
+9. **确认 learn-first 输出策略**：
+
+   在进入 §4.2 写文件之前，将 `session_state.json.current_mode` 写为 `"learn"`。新 lesson 默认使用 `templates/learn-card-template.md`，写入 `lessons/learn/`；练习和 deep 查阅按需拆到独立文件，不把所有教学活动塞进同一个 learner-facing 文档。
+
+   **硬约束**：
+
+   - **默认 learn**：任何新专题首次进入 Step 4 时，先生成 learn-card，不直接生成 deep 版。
+   - **practice 按需**：用户完成 learn-card、要求更多练习，或诊断显示需要巩固时，生成 practice-pack。
+   - **deep 按需**：只有用户要求“深入 / 查来源 / 看完整代码 / 完整推导”，或 learn-card 无法承载必要细节时，才生成 deep-reference。
+   - **不恢复旧 core**：未经用户明确恢复旧流程，不写入 `lessons/core/`，不新增旧“精华版/core”文件；`core-lesson-rules.md` 只作为 reader-first 风格参考和历史会话维护资料。
+   - **记录到对应列表**：learn-card 写入 `session_state.json.lesson_files_learn`；practice-pack 写入 `lesson_files_practice`；deep-reference 写入 `lesson_files_deep`；`lesson_files_core` 仅保留给历史会话兼容，不新增条目。
+   - **旧会话兼容**：恢复已有 `current_mode == "core"` 的历史会话时，不自动删除或迁移旧文件；先告知用户现状，再按用户指令处理。
+
 **4.2 Lesson 文件生成**：
 
 **命名约定**（2026-04-18 新标准，全局生效）：
 
 | 格式 | 用途 | 示例 |
 |------|------|------|
-| `NN_描述.md` | 单页课题（不拆分） | `06_四大总线对比.md` |
-| `NN.X_描述.md` | 多子课题拆分（原理/代码、上/下篇等） | `02.0_I2C 协议原理.md`、`02.1_I2C 协议代码.md` |
+| `learn/NN_描述.learn.md` | 默认学习入口 | `learn/06_四大总线对比.learn.md` |
+| `practice/NN_描述.practice.md` | 练习包 | `practice/06_四大总线对比.practice.md` |
+| `deep/NN_描述.deep.md` | 深入查阅 | `deep/06_四大总线对比.deep.md` |
+| `NN_描述.md` | 旧 deep/legacy 单页课题 | `06_四大总线对比.md` |
+| `NN.X_描述.md` | 旧 deep/legacy 多子课题拆分 | `02.0_I2C 协议原理.md`、`02.1_I2C 协议代码.md` |
 | `lesson_N.md`（旧） | 向后兼容（旧 session 保留；新 session 禁用） | `lesson_1.md` |
 
 - `NN`：2 位主题索引（01-99），`.X`：可选子课时索引（.0/.1/.2…）
 - **实际文件名解析顺序**：
-  1. 读取 `session_state.json.lesson_files[current_lesson-1]`（若存在）
-  2. 回落：按旧约定 `lesson_{current_lesson}.md`
-- 新生成课时必须写入 `session_state.json.lesson_files` 对应位置；若数组不存在则创建
+  1. 按 `session_state.json.current_mode` 读取对应列表：`lesson_files_learn` / `lesson_files_practice` / `lesson_files_deep` / `lesson_files_core`
+  2. 若对应列表为空，回落到旧字段 `lesson_files[current_lesson-1]`
+  3. 最后回落到旧约定 `lesson_{current_lesson}.md`
+- 新生成课时必须写入与当前产物类型对应的 `session_state.json.lesson_files_learn` / `lesson_files_practice` / `lesson_files_deep`；旧 `lesson_files` 仅用于兼容历史会话
 
-下文中所有 `lesson_{index}.md` 表述均应解读为"当前课时的实际文件名（按上述解析顺序）"。
+下文中所有“当前课时文件”均按上述解析顺序确定。
 
 **预读：资料图索引**（强制先于写入 lesson 动作）：
 
@@ -629,88 +677,44 @@ This skill operates as a single inline agent — no role switching required.
 - 若不存在（旧会话或 Step 3 同步失败）：跳过 §4.2.1 决策树第 1-2 步，直接进入第 3 步（生成 DrawIO）或第 4 步（不画图）
 - ⚠️ **禁止**不读索引就生成 DrawIO——这是 §4.2.2 禁区 #11
 
-1. 读取 `${SKILL_DIR}/templates/lesson-template.md`
-2. 按模板生成 `${PROJECT_DIR}/learning-history/${topic_name}_${timestamp}/lessons/lesson_{index}.md`，包含：
-   - **元信息**：目标认知层级、知识类型与讲解策略、**概念标签（concept_tags）**、**前置依赖（prerequisites）**（均来自 4.1 第 6-8 步）
-   - **学习目标**：使用有序列表（`1. 2. 3.`），不加"本节课结束后，你应该能够："等引导语
-   - **知识回引与路径面包屑**（讲解内容的第一个段落 `### 〇、知识回引`）：
-     - 面包屑格式：`> 路径：\`已学课A\` → \`已学课B\` → **\`本课（本课）\`** → \`下一课\``
-     - 面包屑仅展示与本课相关的前后 2-3 课，不需要展示完整 roadmap
-     - 面包屑下方紧跟回引正文（遵循 Step 4.5 第 7 条的对比方向规则）
-   - **## 精讲（含 Worked Example）**：
-     - 按 4.1 第 5 步确定的讲解策略组织内容结构
-     - **按 4.1 第 5.5 步决定的 `teaching_mode`（A 或 B）选择模板分支**：
-       - `A` 模式 → 保留 lesson-template.md 中 `[模式 A]` 段，删除 `[模式 B]` 段
-       - `B` 模式 → 保留 `[模式 B]` 段，删除 `[模式 A]` 段（反之亦然，不得同时保留）
-     - 含 `> **资料原文**：` 引用，适配用户背景的深度与用词
-     - **Worked Example 示范**（每课 1 个，仅 A 模式）：完整展示解题过程，每步标注"这一步为什么这样做"
-     - **代码锚点映射表**（条件触发：知识类型为 `操作性` 或 `程序性`）：对每段 ≥3 行的关键代码块，紧跟一张三列表「代码符号 ↔ 对应原理（前课或本课位置） ↔ 反事实后果（如果不这样会怎样）」。将代码中的每个魔数 / API / 宏 / 参数回引到原理位置——解决用户"这个数哪来的""为什么用这个 API"此类"为什么这样写"的疑问
-     - **反模式画廊**（条件触发：A 模式且知识类型为 `操作性` 或 `程序性`）：Worked Example 之后必须追加「### 反模式画廊（常见错误代码演示）」子节，至少 2 个错误代码片段，每个包含 ① 错误代码 ② 可观测的失败后果 ③ 违反的原理引用位置。这是"为什么这样写"的镜像回答——因为不这样写会出 X 问题
+**learn-first 章节生成契约（2026-04-27 调整）**：
 
-   **B 模式专用生成规则**（2026-04-18 新增，`teaching_mode=B` 时强制执行）：
+- **一次只生成一个序号章节**：除非用户明确要求批量生成，否则每次只写当前一个 `NN_描述.learn.md`，不得顺手预生成后续编号。
+- **源文覆盖表移出正文**：写 learn-card 前，先从学习材料中抽取本课覆盖的原始标题 / 小节 / 考点，生成“源文位置 → 本课落点 → 必须掌握到什么程度”表，写入 `source_coverage/{NN}_{slug}.md`。该表是防遗漏清单，不放进学习者主文档。
+- **learn-card 只解决一个核心问题**：第一次学习不是覆盖资料，而是建立可迁移的心智模型；覆盖资料是 deep-reference / source_coverage 的任务。
+- **练习独立承载**：learn-card 只保留 1-2 道小题和 80 字复述；完整渐进训练、掌握测试和改错题放入 practice-pack。
+- **deep-reference 按需生成**：完整来源引用、完整代码、完整术语表、完整图表和长推导放入 deep-reference，避免挡在第一次学习前面。
 
-   a. **§3.0 全局图景**（硬要求）：
-      - §3.0.1 必须列出所有 `scenario_closures` 的闭环清单（N 行表格）
-      - §3.0.2 共享基座（CubeMX 配置 / 共用 init 代码 / 共享宏定义）只在此处讲**一次**，后续闭环引用即可
-      - §3.0.3 共享决策树（API 选型 / 走向判断）只在此处展开**一次**，后续闭环不重复
+1. 读取 `${SKILL_DIR}/templates/generator-rules.md` 与 `${SKILL_DIR}/templates/learn-card-template.md`
+2. 按模板生成 `${PROJECT_DIR}/learning-history/${topic_name}_${timestamp}/lessons/learn/{NN}_{slug}.learn.md`，包含：
+   - **一个核心问题**：标题直接回答“本节真正要解决什么”，不展示 `concept_tags`、状态协议或生成器元信息。
+   - **学完能做什么**：一句具体任务，替代冗长学习目标。
+   - **先猜一下**：用一个小问题、常见错误或现象暴露已有想法。
+   - **一句话心智模型**：用 1 个类比或 1 条因果链讲清核心机制。
+   - **最小例子**：只展示一个能说明核心问题的例子或 10-25 行核心代码。
+   - **三个关键锚点**（条件触发：知识类型为 `操作性` 或 `程序性`）：只保留最容易写错的参数、最关键的 API 选择、最致命的边界条件；其余锚点进入 deep-reference。
+   - **血的教训**：只保留 1 个最致命错误及其后果；完整反模式画廊进入 deep-reference。
+   - **你来做**：只保留 1 道补一步题、1 道迁移题和 1 个 80 字复述。
 
-   b. **每个 §3.X 闭环** 必须按 7 子节展开：
-      - 3.X.1 📖 场景（≤ 50 字，含硬件清单 + 预期效果 + 为什么学）
-      - 3.X.2 💻 完整可运行代码（精瘦模式，见规则 c）
-      - 3.X.3 🔍 逐部分解释（行号锚点表，禁止重复粘贴代码）
-      - 3.X.4 🧠 原理剖析（**只讲本闭环用到的**原理，跨环共享原理首次出现在哪环讲清即可）
-      - 3.X.5 🎯 渐进训练（基于本闭环 §3.X.2 代码变形，2 题，`<details>` 折叠答案）
-      - 3.X.6 🔴 Feynman 输出（B 档三选二，见规则 d）
-      - 3.X.7 🔵 闭环检查 + 独特笔记（提示写入 `my_notes.md`，见规则 e）
+   **多场景操作课拆卡规则**（替代旧 B 模式“一篇包多个闭环”）：
 
-   c. **精瘦源码集成规则**（§3.X.2 必须遵守，参见 lesson-template.md 附录 B）：
-      - 从 `settings/background.md` 读 `source_code_root`，若未配置则降级 A 并标注 `[⚠️ 源码根未配置，下方为 AI 示范代码]`
-      - 从 `{source_code_root}/{scenario_closures[X].source_project}/{source_files[0]}` 抽取 **happy path 核心片段（30-50 行）**
-      - 引用块格式：`> **源码来源**：{path}（行 {start}-{end}）` + `> **HAL 版本**：{detected}`
-      - 必须说明 "未展示部分"（同文件其他行的功能描述）
-      - ❌ 禁止粘贴 > 60 行的单段源码；❌ 禁止粘贴 CubeMX msp/it/hal_conf 等模板文件
-      - Delta 分析（§3.X.4 中）：若原版代码与"§三开头 10 项生产级审查清单"有 gap，必须并列展示 "原版 vs 增强版"
+   a. 若一个课题含 2 个以上独立可运行场景，不把多个闭环塞进同一篇 learn-card。
+   b. 每个场景单独生成一张 learn-card，例如 `02.1A_EEPROM.learn.md`、`02.1B_OLED.learn.md`。
+   c. 共享基座和横向对比单独生成一张对比 learn-card，例如 `02.1X_I2C场景对比.learn.md`。
+   d. 旧 `teaching_mode=B` 的 7 子节结构只允许用于 deep-reference 或历史 deep 课维护，不再作为默认 learner-facing 结构。
 
-   d. **Feynman B 档生成规则**（§3.X.6 必须遵守）：
-      - 生成 3 个选项（a / b / c）：
-        - a · 文字小结（≤ 80 字，"X 驱动的 5 要素"类开放题）
-        - b · 手绘拍照（给 2-3 个图示建议：时序图 / 内存图 / 状态机；标注 `photos/` 子目录保存路径）
-        - c · 代码改写（给函数签名 + 4 项实现要求；标注 `exercises/` 子目录保存路径）
-      - 硬约束声明必须包含："学员三选二至少完成 2 项，否则不能进入下一闭环"
-      - 所有批改点（AI 检查维度）必须明确写出（覆盖度 / 准确度 / 独立性 / 静态分析项）
-
-   e. **独特笔记机制规则**（§3.X.7 必须遵守）：
-      - 提示学员在 `learning-history/{topic}/lessons/{lesson_file_stem}_notes/my_notes.md` 追加对应闭环节
-      - 模板见 lesson-template.md 附录 C.2
-      - 明确禁止："不要把 AI 讲解复制粘贴到 my_notes.md——那不是'你的'笔记"
-
-   f. **§3.∞ 汇合升维 必填 4 子节**：
-      - 3.∞.1 跨环对比表（学员先填，`<details>` 内放参考答案）
-      - 3.∞.2 复述决策树（不看 §3.0.3 的情况下自述）
-      - 3.∞.3 本课概念图（手绘拍照或 Mermaid 二选一，保存到 my_notes.md）
-      - 3.∞.4 你的疑问（路由到 §七思考模块，不在本节展开）
-
-   g. **配套目录初始化**（B 模式首次生成 lesson 时执行）：
-      - 创建 `learning-history/{topic}/lessons/{lesson_file_stem}_notes/` 目录
-      - 创建 `photos/` 和 `exercises/` 子目录（空）
-      - 生成 `my_notes.md` 骨架（模板见 lesson-template.md 附录 C.2）
-
-   - **## 渐进训练（含 Faded Completion Practice）**：
-     - 2-3 道 Completion Practice 题，每题给出部分解题步骤（逐步淡出），要求用户补全空缺步骤
-     - 适用于程序性知识和原理性知识；对于概念性知识，可改为"填空式概念辨析"
-     - **理由项要求**（条件触发：知识类型为 `操作性` 或 `程序性`）：每个空缺后追加一行 `**理由**：___`，要求用户在填答案外说明依据（对应哪条原理或规格）；把练习从 Bloom L1（识记）抬升到 L2-L3（理解/应用），避免用户从讲解中"直接抄值"而不理解
-   - **## 掌握测试（含新情境题）**：
-     - 3 道新情境题，**必须使用与精讲和训练不同的背景/表达方式**
-     - 测试题不得直接出现在训练题中——这是 retrieval practice 的核心要求
-     - 若本课无新情境可出，可用"换问法"（同一问题换不同问法）
+   **练习拆分规则**：
+   - learn-card 只保留 1 道补一步题、1 道迁移题和 1 个 80 字复述。
+   - 2-3 道 Completion Practice、3 道 Mastery Test、改错题和折叠答案移入 practice-pack。
+   - practice-pack 使用 `${SKILL_DIR}/templates/practice-pack-template.md`，写入 `lessons/practice/`。
 
    **诊断路由条件生成（Conditional Content）**：
 
    | 诊断路由 | 额外生成 | 省略生成 |
    |---------|---------|---------|
-   | **Skip** | 精讲压缩版（保留要点 + 1个 Worked Example） | Completion Practice 可减少 |
-   | **Compact** | 标准结构 | — |
-   | **Full** | 标准结构（Works Example 额外详细） | — |
+   | **Skip** | learn-card 更短：保留心智模型 + 1 个检查题 | practice-pack 可延后 |
+   | **Compact** | 标准 learn-card | — |
+   | **Full** | 标准 learn-card + 同步生成 practice-pack | — |
    | **Remedial** | 先前置补救课，完成后再生成主课（完整结构） | — |
 
    **横向概念对比（条件触发）**：在生成讲解内容时，若本课知识点存在以下情况之一，则在讲解中增加一个"概念辨析"段落（对比表 + 边界案例）：
@@ -820,22 +824,35 @@ Lesson 文件写入完成后，逐条核查讲解内容与习题中的每个细�
 🔍 自检完成：{N} 处已标注来源，{M} 处标注"当前资料未涉及"，质检 {P}/6 项通过，禁区 0 项触发
 ```
 
+写入 lesson 文件后，还必须运行机器门禁：
+
+```bash
+python scripts/lesson_lint.py <lesson_file_or_session_dir>
+```
+
+新生成 learn-card / practice-pack / deep-reference 若出现 `unresolved_placeholder`、`file_driven_protocol`、`image_path_contract` 或 `learn_*` / `practice_*` / `deep_*` 报错，先修正文件，再重新运行 lint。`core_*` 只用于历史 core 文件维护；不得把新 lesson 改写成旧 core 结构来通过检查。
+
+**4.2.3 learn-first 自检补充**：
+
+新生成 learner-facing 文档必须执行 `${SKILL_DIR}/templates/generator-rules.md` 的 learn-card 限制：主文档不展示状态协议、生成器规则、完整来源覆盖表、完整术语表和附录。若目标路径、命名或状态字段仍指向 `lessons/core/` / `lesson_files_core`，先改回 learn-first 生成路径与 `lesson_files_learn`，再继续 §4.2.2 的通用自检。
+
 3. 生成后，**不在对话中展示课程内容**，仅发送通知：
    ```
-   ✅ Lesson {index} 已生成！
+    ✅ Learn-card {index} 已生成！
 
-   📄 文件位置：`./learning-history/${topic_name}_${timestamp}/lessons/lesson_{index}.md`
+    📄 文件位置：`./learning-history/${topic_name}_${timestamp}/lessons/learn/{NN}_{slug}.learn.md`
 
-   请阅读该文件，在"我的答案"区域填写你的答案，保存文件后，在对话窗口告诉我"已完成"。
+    请阅读该文件，在"我的答案"区域填写答案，保存文件后，在对话窗口告诉我"已完成"。
    ```
 
 ⛔ **BLOCKING**: 等待用户在对话中说"已完成"、"做完了"、"写完了"等表述。
 
 **4.3 答案检查（用户说"已完成"后执行）**：
 
-1. 读取 `lesson_{index}.md`，提取所有"我的答案"区域内容，分两类处理：
-   - **渐进训练（Completion Practice）**：Completion Practice 1-N（补全淡出步骤）
-   - **掌握测试（Mastery Test）**：测试题 1-N（新情境独立解题）
+1. 读取当前课时文件，提取所有"我的答案"区域内容：
+   - `learn` 模式：批改补一步题、迁移题和 80 字复述
+   - `practice` 模式：批改检索题、迁移题、改错题和复述题
+   - `deep` / legacy 模式：按 Completion Practice 和 Mastery Test 批改
 2. 若所有"我的答案"区域均为空 → 提示用户先去文件中填写，重新 BLOCKING
 3. **渐进训练批改（Completion Practice 部分）**：
    - 评估方式：用户是否正确填写了空缺步骤？每填对一个得 1 分
@@ -1091,13 +1108,14 @@ Lesson 文件写入完成后，逐条核查讲解内容与习题中的每个细�
    - 更新断点恢复信息（最后完成课时、当前课时状态、未纠正错题数）
    - 更新用户画像快照（根据本课答题表现修正错误模式分析、认知偏好）
    - 追加教学决策日志（如触发了动态支架、插入了补救课等关键决策）
-4. **更新 `session_state.json`（状态唯一权威源，v2.0）**：
+4. **更新 `session_state.json`（状态唯一权威源，v2.3）**：
    - `current_lesson` ← 下一课编号
    - `phase` ← `"learning"` / `"review"` / `"completed"`（视当前阶段）
    - `last_completed_lesson` ← 刚完成的课时编号
    - `mastery_passed` / `mastery_failed` ← 累加本课答题结果
    - `mastery_rate` ← `mastery_passed / (mastery_passed + mastery_failed)`
    - `wait_reason` ← `"awaiting_answer"` / `null`（视是否等待用户答题）
+   - `wait_detail` ← 具体等待上下文（如 lesson_id、mode、message）；不要把业务化字符串塞进 `wait_reason`
    - `updated_at` ← 当前时间戳
    - 若为 Git 仓库学习：`repo_commit_hash` ← 当前 HEAD commit hash
 5. **追加 `metrics.json` 事件**（若文件不存在则从 `metrics-template.json` 初始化）：
@@ -1128,8 +1146,9 @@ Lesson 文件写入完成后，逐条核查讲解内容与习题中的每个细�
    > **自检结果不在对话中展示**，仅在 CHECKPOINT 中附加一行：`🔒 状态自检：{N}/5 项通过`
    >
    > **脚本辅助（推荐）**：可直接运行 `python scripts/session/validate_state.py <session_dir>` 得到完整校验报告；CI 环境中该脚本也用于守护新生成的会话。
+   > 若发现历史会话可能漂移，先运行只读审计 `python scripts/session/reconcile_state.py <session_dir>`；只有确认后才加 `--fix-lesson-files` 或 `--fix-wait-reason` 写回。
 
-7. **读取 Reflection 反馈**：检查 `lesson_{index}.md` 中 `## Reflection` 区域，若用户填写了认知难度或需要澄清的内容：
+7. **读取反馈**：检查当前课时文件中是否存在 `## Reflection`、`80 字复述` 或其他难度反馈区域，若用户填写了认知难度或需要澄清的内容：
    - 认知难度 ≥ 4 → 触发 4.4 动态支架的降级策略
    - 认知难度 ≤ 1 → 触发 4.4 动态支架的升级机制
    - 用户提出需要澄清的内容 → 在下一课开头增加针对性补充讲解

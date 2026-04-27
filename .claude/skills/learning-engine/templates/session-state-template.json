@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.2",
+  "schema_version": "2.3",
   "topic_id": "",
   "topic_name": "",
   "source_path": "",
@@ -16,6 +16,12 @@
   "learning_language": "",
   "wait_reason": null,
   "repo_commit_hash": null,
+  "current_mode": "learn",
+  "lesson_files_learn": [],
+  "lesson_files_practice": [],
+  "lesson_files_core": [],
+  "lesson_files_deep": [],
+  "mode_switch_log": [],
   "learner_model": {
     "schema_version": "1.0",
     "concept_mastery": {},
@@ -34,6 +40,7 @@
     "metrics": "metrics.json",
     "review_queue": "review_queue.json",
     "course_overview": "course_overview.md",
+    "source_coverage": "source_coverage/",
     "report": "report.md"
   }
 }

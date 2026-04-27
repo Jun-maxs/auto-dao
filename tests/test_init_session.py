@@ -42,6 +42,10 @@ class TestInitSessionHappyPath:
         assert session.is_dir()
         assert session.name == "demo-topic_2026-04-18-08-00"
         assert (session / "lessons").is_dir()
+        assert (session / "lessons" / "learn").is_dir()
+        assert (session / "lessons" / "practice").is_dir()
+        assert (session / "lessons" / "deep").is_dir()
+        assert (session / "source_coverage").is_dir()
 
     def test_all_derived_views_present(self, tmp_path: Path):
         src = _make_source(tmp_path)
@@ -75,7 +79,7 @@ class TestInitSessionHappyPath:
             total_lessons=3,
         )
         state = json.loads((session / "session_state.json").read_text(encoding="utf-8"))
-        assert state["schema_version"] == "2.2"
+        assert state["schema_version"] == "2.3"
         assert state["topic_id"] == "demo-topic"
         assert state["topic_name"] == "Demo Topic 演示"
         assert state["source_path"] == str(src)
@@ -83,6 +87,13 @@ class TestInitSessionHappyPath:
         assert state["phase"] == "learning"
         assert state["total_lessons"] == 3
         assert state["learning_language"] == "zh"
+        assert state["current_mode"] == "learn"
+        assert state["lesson_files_learn"] == []
+        assert state["lesson_files_practice"] == []
+        assert state["lesson_files_core"] == []
+        assert state["lesson_files_deep"] == []
+        assert state["mode_switch_log"] == []
+        assert state["_file_paths"]["source_coverage"] == "source_coverage/"
         assert state["source_hash"].startswith("sha256:")
         assert state["created_at"] and state["updated_at"]
         # learner_model defaults

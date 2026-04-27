@@ -127,8 +127,11 @@ auto-dao/
 │       ├── summary.md           # 学习摘要
 │       ├── roadmap_status.md    # 学习路线图
 │       ├── report.md            # 学习报告（学习完成后生成）
+│       ├── source_coverage/     # 来源覆盖表（给 AI/老师查漏）
 │       └── lessons/
-│           └── lesson_N.md      # 第 N 课内容
+│           ├── learn/           # 默认学习入口：短文档，先学会
+│           ├── practice/        # 练习包：检索、迁移、改错
+│           └── deep/            # 深入查阅：完整来源、代码、推导
 ├── examples/                    # 示例学习记录
 └── tmp/                         # 学习材料存放处
 ```
@@ -138,6 +141,7 @@ auto-dao/
 ## 💡 使用技巧
 
 ### 1. 文件驱动学习
+- 默认先读 `lessons/learn/*.learn.md`，需要更多练习再看 `practice/`，需要完整来源再看 `deep/`
 - 所有讲义和习题保存在 `learning-history/` 的文件中
 - 用户在文件中完成习题，AI 读取后批改
 - **不在对话中展示课程内容**，始终保持文件驱动
@@ -158,7 +162,7 @@ auto-dao/
 
 | 症状 | 原因 | 解决 |
 |------|------|------|
-| `validate_state.py` 报 `schema_version expected '2.2', got '2.0'` | 旧版会话（schema 2.0/2.1）需要迁移 | 在 `session_state.json` 补 `topic_name` / `learner_model` / `_file_paths` 并把版本改 `2.2`；或用 `python scripts/session/init_session.py` 新建后手动搬运内容 |
+| `validate_state.py` 报 `schema_version expected '2.3', got '2.0'` | 旧版会话（schema 2.0/2.1/2.2）需要迁移 | 在 `session_state.json` 补 `topic_name` / `learner_model` / `_file_paths` / `current_mode` / `lesson_files_core` / `lesson_files_deep` / `mode_switch_log` 并把版本改 `2.3`；或用 `python scripts/session/init_session.py` 新建后手动搬运内容 |
 | 新会话必需字段缺失 | 手动创建会话易漏 | 直接用 `python scripts/session/init_session.py <topic_id> <source_path>` 一键生成骨架并自动通过校验 |
 | `_file_paths` 与实际文件名不一致 | 历史遗留 `Sys.NN_` 前缀 | 重命名派生视图文件为纯名（`summary.md` 等），并更新 `_file_paths` |
 
@@ -182,6 +186,12 @@ auto-dao/
 ```bash
 # 校验某个会话目录的全部状态不变量
 python scripts/session/validate_state.py learning-history/<topic>_<timestamp>
+
+# 只读检查 session_state 与 lesson 文件是否漂移
+python scripts/session/reconcile_state.py learning-history/<topic>_<timestamp>
+
+# 校验 lesson 产物是否符合 learn/practice/deep 分层规则（兼容历史 core 会话）
+python scripts/lesson_lint.py learning-history/<topic>_<timestamp>
 
 # 查看到期复习项
 python scripts/session/schedule_review.py learning-history/<topic>_<timestamp>

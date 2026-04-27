@@ -10,20 +10,24 @@ from scripts.session.validate_state import (
     check_phase,
     check_counterfactual_mode,
     check_wait_reason,
+    check_current_mode,
+    check_lesson_mode_paths,
     check_lesson_count,
     check_lesson_continuity,
     check_completed_has_report,
     check_mastery_rate,
     check_learning_has_lesson,
+    check_lesson_variants_active,
     VALID_PHASES,
     VALID_CF_MODES,
     VALID_WAIT_REASONS,
+    VALID_CURRENT_MODES,
 )
 
 
 class TestCheckSchemaVersion:
     def test_valid(self):
-        state = {"schema_version": "2.2"}
+        state = {"schema_version": "2.3"}
         result = check_schema_version(state)
         assert result.passed
 
@@ -33,8 +37,8 @@ class TestCheckSchemaVersion:
         assert not result.passed
 
     def test_old_version_rejected(self):
-        # 2.0/2.1 were prior schemas without _file_paths / learner_model required fields.
-        # After 2.2 is declared canonical, older versions must be flagged for migration.
+        # 2.0/2.1/2.2 were prior schemas without the complete core/deep fields.
+        # After 2.3 is declared canonical, older versions must be flagged for migration.
         state = {"schema_version": "2.0"}
         result = check_schema_version(state)
         assert not result.passed
@@ -48,7 +52,7 @@ class TestCheckSchemaVersion:
 class TestCheckRequiredFields:
     def test_all_present(self):
         state = {
-            "schema_version": "2.2",
+            "schema_version": "2.3",
             "topic_id": "test",
             "source_path": "test.pdf",
             "phase": "learning",
@@ -61,7 +65,7 @@ class TestCheckRequiredFields:
         assert result.passed
 
     def test_missing_fields(self):
-        state = {"schema_version": "2.2", "topic_id": "test"}
+        state = {"schema_version": "2.3", "topic_id": "test"}
         result = check_required_fields(state)
         assert not result.passed
         assert len(result.detail) > 0
@@ -104,22 +108,74 @@ class TestCheckWaitReason:
         assert not result.passed
 
 
+class TestCheckCurrentMode:
+    def test_valid_modes(self):
+        for mode in VALID_CURRENT_MODES:
+            result = check_current_mode({"current_mode": mode})
+            assert result.passed, f"mode '{mode}' should be valid"
+
+    def test_invalid_mode(self):
+        result = check_current_mode({"current_mode": "compact"})
+        assert not result.passed
+
+    def test_missing_mode(self):
+        result = check_current_mode({})
+        assert not result.passed
+
+
+class TestCheckLessonModePaths:
+    def test_core_and_deep_paths_valid(self):
+        state = {
+            "lesson_files_learn": ["learn/01_learn.md"],
+            "lesson_files_practice": ["practice/01_practice.md"],
+            "lesson_files_core": ["core/01_core.md"],
+            "lesson_files_deep": ["deep/01_deep.md", "02_legacy_deep.md"],
+        }
+        result = check_lesson_mode_paths(state)
+        assert result.passed, result.detail
+
+    def test_learn_must_live_under_learn_dir(self):
+        result = check_lesson_mode_paths({"lesson_files_learn": ["01_learn.md"]})
+        assert not result.passed
+        assert "lessons/learn" in result.detail
+
+    def test_practice_must_live_under_practice_dir(self):
+        result = check_lesson_mode_paths({"lesson_files_practice": ["learn/01_wrong.md"]})
+        assert not result.passed
+        assert "lessons/practice" in result.detail
+
+    def test_core_must_live_under_core_dir(self):
+        result = check_lesson_mode_paths({"lesson_files_core": ["01_core.md"]})
+        assert not result.passed
+        assert "lessons/core" in result.detail
+
+    def test_deep_allows_only_deep_dir_or_legacy_root(self):
+        result = check_lesson_mode_paths({"lesson_files_deep": ["core/01_wrong.md"]})
+        assert not result.passed
+        assert "lessons/deep" in result.detail
+
+    def test_parent_traversal_rejected(self):
+        result = check_lesson_mode_paths({"lesson_files_core": ["core/../01_core.md"]})
+        assert not result.passed
+        assert "unsafe" in result.detail
+
+
 class TestCheckLessonContinuity:
     def test_empty_dir(self, tmp_path: Path):
-        result = check_lesson_continuity(tmp_path)
+        result = check_lesson_continuity({}, tmp_path)
         assert result.passed
 
     def test_no_lesson_files(self, tmp_path: Path):
         # Create a non-lesson file
         (tmp_path / "summary.md").touch()
-        result = check_lesson_continuity(tmp_path)
+        result = check_lesson_continuity({}, tmp_path)
         assert result.passed  # No lesson files means trivially continuous
 
     def test_consecutive_lessons(self, tmp_path: Path):
         (tmp_path / "lesson_1.md").touch()
         (tmp_path / "lesson_2.md").touch()
         (tmp_path / "lesson_3.md").touch()
-        result = check_lesson_continuity(tmp_path)
+        result = check_lesson_continuity({}, tmp_path)
         assert result.passed
 
     def test_missing_lesson(self, tmp_path: Path):
@@ -127,8 +183,103 @@ class TestCheckLessonContinuity:
         # The implementation intentionally allows gaps — only unique ascending order is checked
         (tmp_path / "lesson_1.md").touch()
         (tmp_path / "lesson_3.md").touch()  # lesson_2 missing — allowed for remedial/branch
-        result = check_lesson_continuity(tmp_path)
+        result = check_lesson_continuity({}, tmp_path)
         assert result.passed  # Gaps are permitted; check_lesson_continuity only verifies no duplicates and starts at 1
+
+    def test_new_naming_convention_all_present(self, tmp_path: Path):
+        # New NN[.X]_描述.md convention with lesson_files in state
+        (tmp_path / "02.0_I2C 协议原理.md").touch()
+        (tmp_path / "02.1_I2C 协议代码_v2.md").touch()
+        state = {
+            "lesson_files": ["02.0_I2C 协议原理.md", "02.1_I2C 协议代码_v2.md"],
+            "current_lesson": 2,
+            "last_completed_lesson": 1,
+        }
+        result = check_lesson_continuity(state, tmp_path)
+        assert result.passed
+
+    def test_new_naming_with_variant_override(self, tmp_path: Path):
+        # lesson_files says legacy name, but variant points to v2 on disk
+        (tmp_path / "02.0_I2C 协议原理.md").touch()
+        (tmp_path / "02.1_I2C 协议代码_v2.md").touch()  # only v2 exists
+        state = {
+            "lesson_files": ["02.0_I2C 协议原理.md", "02.1_I2C 协议代码.md"],
+            "lesson_variants": {
+                "02.1": {"active": "02.1_I2C 协议代码_v2.md"},
+            },
+            "current_lesson": 2,
+        }
+        result = check_lesson_continuity(state, tmp_path)
+        assert result.passed, f"variant should satisfy base entry; got: {result.detail}"
+
+    def test_new_naming_future_lessons_skipped(self, tmp_path: Path):
+        # Only 2 of 9 planned lessons on disk — in-progress, should pass
+        (tmp_path / "02.0_I2C 协议原理.md").touch()
+        (tmp_path / "02.1_I2C 协议代码_v2.md").touch()
+        state = {
+            "lesson_files": [
+                "02.0_I2C 协议原理.md",
+                "02.1_I2C 协议代码_v2.md",
+                "03.0_SPI 协议原理.md",
+                "03.1_SPI 协议代码.md",
+            ],
+            "current_lesson": 2,
+            "last_completed_lesson": 1,
+        }
+        result = check_lesson_continuity(state, tmp_path)
+        assert result.passed, f"future lessons not yet generated should not fail: {result.detail}"
+
+    def test_core_lesson_files_resolved_under_lessons_subdir(self, tmp_path: Path):
+        core_dir = tmp_path / "core"
+        core_dir.mkdir()
+        (core_dir / "01_嵌入式硬件基础精华版.md").touch()
+        state = {
+            "current_mode": "core",
+            "lesson_files_core": ["core/01_嵌入式硬件基础精华版.md"],
+            "current_lesson": 1,
+            "last_completed_lesson": 0,
+        }
+        result = check_lesson_continuity(state, tmp_path)
+        assert result.passed, result.detail
+
+    def test_deep_lesson_files_resolved_under_lessons_subdir(self, tmp_path: Path):
+        deep_dir = tmp_path / "deep"
+        deep_dir.mkdir()
+        (deep_dir / "01_嵌入式硬件基础.md").touch()
+        state = {
+            "current_mode": "deep",
+            "lesson_files_deep": ["deep/01_嵌入式硬件基础.md"],
+            "current_lesson": 1,
+            "last_completed_lesson": 0,
+        }
+        result = check_lesson_continuity(state, tmp_path)
+        assert result.passed, result.detail
+
+    def test_learn_lesson_files_resolved_under_lessons_subdir(self, tmp_path: Path):
+        learn_dir = tmp_path / "learn"
+        learn_dir.mkdir()
+        (learn_dir / "01_gpio.learn.md").touch()
+        state = {
+            "current_mode": "learn",
+            "lesson_files_learn": ["learn/01_gpio.learn.md"],
+            "current_lesson": 1,
+            "last_completed_lesson": 0,
+        }
+        result = check_lesson_continuity(state, tmp_path)
+        assert result.passed, result.detail
+
+    def test_practice_lesson_files_resolved_under_lessons_subdir(self, tmp_path: Path):
+        practice_dir = tmp_path / "practice"
+        practice_dir.mkdir()
+        (practice_dir / "01_gpio.practice.md").touch()
+        state = {
+            "current_mode": "practice",
+            "lesson_files_practice": ["practice/01_gpio.practice.md"],
+            "current_lesson": 1,
+            "last_completed_lesson": 0,
+        }
+        result = check_lesson_continuity(state, tmp_path)
+        assert result.passed, result.detail
 
 
 class TestCheckLessonCount:
@@ -218,6 +369,60 @@ class TestCheckLearningHasLesson:
         state = {"phase": "learning", "current_lesson": 5, "last_completed_lesson": 4}
         result = check_learning_has_lesson(state, tmp_path)
         assert not result.passed
+
+    def test_core_current_lesson_exists(self, tmp_path: Path):
+        core_dir = tmp_path / "core"
+        core_dir.mkdir()
+        (core_dir / "01_core.md").touch()
+        state = {
+            "phase": "learning",
+            "current_mode": "core",
+            "current_lesson": 1,
+            "last_completed_lesson": 0,
+            "lesson_files_core": ["core/01_core.md"],
+        }
+        result = check_learning_has_lesson(state, tmp_path)
+        assert result.passed, result.detail
+
+    def test_learn_current_lesson_exists(self, tmp_path: Path):
+        learn_dir = tmp_path / "learn"
+        learn_dir.mkdir()
+        (learn_dir / "01_gpio.learn.md").touch()
+        state = {
+            "phase": "learning",
+            "current_mode": "learn",
+            "current_lesson": 1,
+            "last_completed_lesson": 0,
+            "lesson_files_learn": ["learn/01_gpio.learn.md"],
+        }
+        result = check_learning_has_lesson(state, tmp_path)
+        assert result.passed, result.detail
+
+
+class TestCheckLessonVariantsActive:
+    def test_no_variants(self, tmp_path: Path):
+        result = check_lesson_variants_active({}, tmp_path)
+        assert result.passed
+
+    def test_active_variant_exists(self, tmp_path: Path):
+        (tmp_path / "02.1_I2C 协议代码_v2.md").touch()
+        state = {
+            "lesson_variants": {
+                "02.1": {"active": "02.1_I2C 协议代码_v2.md"},
+            }
+        }
+        result = check_lesson_variants_active(state, tmp_path)
+        assert result.passed, result.detail
+
+    def test_active_variant_missing(self, tmp_path: Path):
+        state = {
+            "lesson_variants": {
+                "02.1": {"active": "02.1_I2C 协议代码_v2.md"},
+            }
+        }
+        result = check_lesson_variants_active(state, tmp_path)
+        assert not result.passed
+        assert "02.1_I2C 协议代码_v2.md" in result.detail
 
 
 # --- Diagnostic-related invariants ---
