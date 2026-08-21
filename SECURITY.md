@@ -11,7 +11,7 @@
 If you discover a security vulnerability in auto-dao, please report it responsibly:
 
 1. **Do NOT open a public issue.**
-2. Send a description of the vulnerability to the repository maintainer via [GitHub Security Advisories](https://github.com/a15816011695-lang/auto-dao/security/advisories/new).
+2. Send a description of the vulnerability to the repository maintainer via [GitHub Security Advisories](https://github.com/Jun-maxs/auto-dao/security/advisories/new).
 3. Include steps to reproduce, impact assessment, and any suggested fix.
 
 We aim to acknowledge reports within **48 hours** and provide a fix or mitigation plan within **7 days** for confirmed vulnerabilities.

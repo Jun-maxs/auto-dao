@@ -32,6 +32,21 @@ MAX_RETRIES = 3        # 请求重试次数
 logger = logging.getLogger("convert_to_markdown")
 
 
+def _ensure_utf8_stdio() -> None:
+    """Avoid UnicodeEncodeError for Chinese progress output on Windows consoles."""
+    for stream in (sys.stdout, sys.stderr):
+        encoding = getattr(stream, "encoding", "") or ""
+        if encoding.lower() in ("utf-8", "utf8"):
+            continue
+        try:
+            stream.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+        except Exception:
+            pass
+
+
+_ensure_utf8_stdio()
+
+
 def _build_session() -> requests.Session:
     """构建带指数退避重试的 requests Session"""
     session = requests.Session()

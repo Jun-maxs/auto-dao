@@ -2,6 +2,7 @@
 
 **建议用时**：{8-15 分钟}
 **学完你能做什么**：{concrete_outcome}
+**最小闭环**：{input} → {process} → {output} → {feedback_signal}
 
 ---
 

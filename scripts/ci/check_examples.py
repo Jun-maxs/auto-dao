@@ -5,7 +5,8 @@ check_examples.py — Validate example learning-history directory structure.
 Each example session under examples/learning-history/ must contain:
   - summary.md
   - roadmap_status.md
-  - lessons/           (directory with at least one lesson_N.md)
+  - lessons/           (directory with at least one legacy lesson_N.md or
+                        one current structured Markdown lesson)
 
 Exit codes:
     0  — all examples valid
@@ -44,10 +45,15 @@ def check_session(session_dir: Path) -> list[str]:
     else:
         lesson_files = [
             f for f in lessons_dir.iterdir()
-            if re.match(r"lesson_\d+\.md$", f.name)
+            if f.is_file() and re.match(r"lesson_\d+\.md$", f.name)
         ]
         if not lesson_files:
-            errors.append("lessons/ contains no lesson_N.md files")
+            lesson_files = [
+                f for f in lessons_dir.rglob("*.md")
+                if f.is_file() and not f.name.startswith("_")
+            ]
+        if not lesson_files:
+            errors.append("lessons/ contains no lesson markdown files")
 
     return errors
 

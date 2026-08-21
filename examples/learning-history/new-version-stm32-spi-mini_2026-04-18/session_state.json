@@ -1,0 +1,69 @@
+{
+  "schema_version": "2.3",
+  "topic_id": "new-version-stm32-spi-mini",
+  "topic_name": "STM32F103 HAL 库开发（SPI mini 示例）",
+  "source_path": "examples/sources/stm32f103-hal-mini/source.pdf",
+  "processed_path": "examples/sources/stm32f103-hal-mini/converted/full.md",
+  "source_hash": "example-sanitized-no-binary-source-committed",
+  "phase": "learning",
+  "current_lesson": 1,
+  "total_lessons": 1,
+  "last_completed_lesson": 0,
+  "mastery_passed": 0,
+  "mastery_failed": 0,
+  "mastery_rate": 0.0,
+  "counterfactual_mode": "on",
+  "learning_language": "zh",
+  "wait_reason": "awaiting_answer",
+  "wait_detail": {
+    "lesson_id": "L03",
+    "mode": "learn",
+    "message": "awaiting learner answers in lessons/learn/03_SPI协议原理.learn.md"
+  },
+  "repo_commit_hash": null,
+  "current_mode": "learn",
+  "lesson_files_learn": [
+    "learn/03_SPI协议原理.learn.md"
+  ],
+  "lesson_files_practice": [],
+  "lesson_files_core": [],
+  "lesson_files_deep": [],
+  "mode_switch_log": [
+    {
+      "at": "2026-04-18T16:06:00+08:00",
+      "from": "core",
+      "to": "learn",
+      "reason": "仓库示例裁剪为新版 learn-card 优先结构；完整 deep/reference/interactive 资产仅在本地 learning-history 保留。"
+    }
+  ],
+  "created_at": "2026-04-18T16:06:00+08:00",
+  "updated_at": "2026-04-18T16:06:00+08:00",
+  "learner_model": {
+    "schema_version": "1.0",
+    "concept_mastery": {},
+    "overall_confidence_bias": "unknown",
+    "preferred_pace": "moderate",
+    "bloom_target": 3,
+    "last_updated_at": "2026-04-18T16:06:00+08:00"
+  },
+  "_file_paths": {
+    "summary": "summary.md",
+    "roadmap": "roadmap_status.md",
+    "session_state": "session_state.json"
+  },
+  "lesson_titles": [
+    "SPI 协议原理：为什么 SPI 用 4 根线换速度？"
+  ],
+  "lesson_files": [
+    "learn/03_SPI协议原理.learn.md"
+  ],
+  "reset_log": [
+    {
+      "at": "2026-04-18T16:06:00+08:00",
+      "reason": "从完整 STM32F103 HAL 通信总线专题裁剪为仓库 mini 示例；保留新版结构，移除 PDF、图片、私有路径和大目录。",
+      "prev": {
+        "source_session_shape": "full local learning-history session with converted materials, images, references, AI-source files, and optional interactive HTML"
+      }
+    }
+  ]
+}

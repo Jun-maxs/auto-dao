@@ -141,6 +141,7 @@ This skill operates as a single inline agent — no role switching required.
 | Practice-pack 模板 | `${SKILL_DIR}/templates/practice-pack-template.md` | 练习包，承载检索、迁移、改错和复述 |
 | Deep-reference 模板 | `${SKILL_DIR}/templates/deep-reference-template.md` | 深入查阅、来源覆盖、完整推导与完整代码 |
 | 生成器规则 | `${SKILL_DIR}/templates/generator-rules.md` | AI 内部规则，不直接写入学习者主文档 |
+| 实践过程规则 | `${SKILL_DIR}/templates/practice-process-rules.md` | 结果牵引、最小闭环、反馈校准、复盘沉淀和间隔练习 |
 | Legacy Lesson 模板 | `${SKILL_DIR}/templates/lesson-template.md` | 旧 deep 结构模板；仅维护历史 deep 课或用户明确要求时使用 |
 | 摘要模板 | `${SKILL_DIR}/templates/summary-template.md` | `summary.md` 初始化模板 |
 | 路线图模板 | `${SKILL_DIR}/templates/roadmap-template.md` | `roadmap_status.md` 初始化模板 |
@@ -682,13 +683,15 @@ This skill operates as a single inline agent — no role switching required.
 - **一次只生成一个序号章节**：除非用户明确要求批量生成，否则每次只写当前一个 `NN_描述.learn.md`，不得顺手预生成后续编号。
 - **源文覆盖表移出正文**：写 learn-card 前，先从学习材料中抽取本课覆盖的原始标题 / 小节 / 考点，生成“源文位置 → 本课落点 → 必须掌握到什么程度”表，写入 `source_coverage/{NN}_{slug}.md`。该表是防遗漏清单，不放进学习者主文档。
 - **learn-card 只解决一个核心问题**：第一次学习不是覆盖资料，而是建立可迁移的心智模型；覆盖资料是 deep-reference / source_coverage 的任务。
+- **实践过程以结果牵引**：每节课先定义一个可见小结果和最小闭环，按 `结果定义 -> 最小闭环 -> 按需补课 -> 反馈校准 -> 复盘沉淀 -> 迁移挑战` 组织 practice，不把“做出来”误判为“已掌握”。
 - **练习独立承载**：learn-card 只保留 1-2 道小题和 80 字复述；完整渐进训练、掌握测试和改错题放入 practice-pack。
 - **deep-reference 按需生成**：完整来源引用、完整代码、完整术语表、完整图表和长推导放入 deep-reference，避免挡在第一次学习前面。
 
-1. 读取 `${SKILL_DIR}/templates/generator-rules.md` 与 `${SKILL_DIR}/templates/learn-card-template.md`
+1. 读取 `${SKILL_DIR}/templates/generator-rules.md`、`${SKILL_DIR}/templates/practice-process-rules.md` 与 `${SKILL_DIR}/templates/learn-card-template.md`
 2. 按模板生成 `${PROJECT_DIR}/learning-history/${topic_name}_${timestamp}/lessons/learn/{NN}_{slug}.learn.md`，包含：
    - **一个核心问题**：标题直接回答“本节真正要解决什么”，不展示 `concept_tags`、状态协议或生成器元信息。
-   - **学完能做什么**：一句具体任务，替代冗长学习目标。
+   - **学完能做什么**：一句具体任务，替代冗长学习目标；必须是可见结果，不写“学会 X”。
+   - **最小闭环**：用 `输入 -> 处理 -> 输出 -> 反馈` 写出本节可验证路径。
    - **先猜一下**：用一个小问题、常见错误或现象暴露已有想法。
    - **一句话心智模型**：用 1 个类比或 1 条因果链讲清核心机制。
    - **最小例子**：只展示一个能说明核心问题的例子或 10-25 行核心代码。
@@ -707,6 +710,7 @@ This skill operates as a single inline agent — no role switching required.
    - learn-card 只保留 1 道补一步题、1 道迁移题和 1 个 80 字复述。
    - 2-3 道 Completion Practice、3 道 Mastery Test、改错题和折叠答案移入 practice-pack。
    - practice-pack 使用 `${SKILL_DIR}/templates/practice-pack-template.md`，写入 `lessons/practice/`。
+   - practice-pack 必须包含“最小闭环实践”：要做出的结果、验收标准、反馈信号、局部补课项、4 行复盘和至少 1 个迁移挑战。
 
    **诊断路由条件生成（Conditional Content）**：
 

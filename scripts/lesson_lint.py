@@ -98,6 +98,7 @@ PRACTICE_STRUCTURE_RULES = (
     ("practice_retrieval", ("检索题",)),
     ("practice_transfer", ("迁移题",)),
     ("practice_correction", ("改错题",)),
+    ("practice_minimal_loop", ("最小闭环实践", "闭环路径")),
     ("practice_feedback", ("批改反馈",)),
 )
 

@@ -31,4 +31,4 @@ When using cloud-based AI providers (e.g., Claude via claude.ai/code), your conv
 
 ## Questions
 
-If you have questions about data handling, please open a [GitHub Issue](https://github.com/a15816011695-lang/auto-dao/issues).
+If you have questions about data handling, please open a [GitHub Issue](https://github.com/Jun-maxs/auto-dao/issues).

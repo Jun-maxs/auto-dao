@@ -333,8 +333,8 @@ elif 知识类型 in [操作性, 程序性]:
 > 若本地有对应课程的完整工程源码，填入此字段，AI 会在生成操作性 lesson 时抽取真实代码。
 > 留空则 AI 使用通用示范代码。
 
-- source_code_root: E:/hangge-code/0.源码/04-stm32
-- source_material_md: E:/hangge-code/0.源码/04-stm32/md  # 原版配套教程（可选，作为 AI context）
+- source_code_root: /path/to/your/source-project
+- source_material_md: /path/to/your/source-project/md  # 原版配套教程（可选，作为 AI context）
 ```
 
 ### 5.2 lesson 元信息新增字段
@@ -560,7 +560,7 @@ Feynman 输出覆盖度 < 60% 的 concept_tag 自动加入复习队列：
 ### 8.3 settings/background.md 与 background.example.md
 
 - 新增"源码参考"节（可选字段）
-- 示例填写：`source_code_root: E:/hangge-code/0.源码/04-stm32`
+- 示例填写：`source_code_root: /path/to/your/source-project`
 
 ---
 

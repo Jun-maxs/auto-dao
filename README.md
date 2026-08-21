@@ -24,7 +24,7 @@
 ### 1. 克隆项目
 
 ```bash
-git clone https://github.com/a15816011695-lang/auto-dao.git
+git clone https://github.com/Jun-maxs/auto-dao.git
 cd auto-dao
 ```
 
@@ -50,7 +50,7 @@ MINERU_API_KEY=你的API密钥
 
 ### 4. 个性化配置
 
-编辑 `settings/background.md`，填入你的背景信息：
+复制 `settings/background.example.md` 为 `settings/background.md`（该文件不会提交到 Git），填入你的背景信息：
 
 ```markdown
 ## 正在读的年级
@@ -120,7 +120,8 @@ auto-dao/
 ├── settings/                    # 用户配置
 │   ├── .env                     # API Keys（不提交到 Git）
 │   ├── .env.example             # API Keys 配置模板
-│   ├── background.md            # 用户背景信息
+│   ├── background.example.md    # 用户背景信息模板
+│   ├── background.md            # 用户背景信息（本地文件，不提交）
 │   └── glossary.md              # 术语表
 ├── learning-history/            # 学习记录（自动生成）
 │   └── {topic}_{timestamp}/

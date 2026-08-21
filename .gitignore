@@ -186,6 +186,9 @@ projects/*
 settings/.env
 api_keys.json
 
+# Personal learner profile (copy from settings/background.example.md)
+settings/background.md
+
 # answers
 answers/
 !answers/README.md

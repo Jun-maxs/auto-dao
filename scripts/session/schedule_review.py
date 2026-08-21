@@ -19,6 +19,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
+def _ensure_utf8_stdio() -> None:
+    """Avoid UnicodeEncodeError for emoji/status output on Windows consoles."""
+    for stream in (sys.stdout, sys.stderr):
+        encoding = getattr(stream, "encoding", "") or ""
+        if encoding.lower() in ("utf-8", "utf8"):
+            continue
+        try:
+            stream.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+        except Exception:
+            pass
+
+
+_ensure_utf8_stdio()
+
+
 def load_queue(session_dir: Path) -> dict:
     queue_path = session_dir / "review_queue.json"
     if not queue_path.exists():
